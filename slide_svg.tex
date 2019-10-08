@@ -1,0 +1,73 @@
+\documentclass[dvisvgm,hypertex,10pt,aspectratio=169,english]{beamer}
+%\usetheme{Warsaw}
+
+\usepackage{tikz}
+\usepackage{animate}
+\ExplSyntaxOn
+\let\fpEval\fp_eval:n % expandable flt-point calculation with L3
+\ExplSyntaxOff
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% PageDown, PageUp key event handling; navigation symbols
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\usepackage[totpages]{zref}
+\usepackage{atbegshi}
+\usepackage{fontawesome}
+\setbeamertemplate{navigation symbols}{}
+\AtBeginShipout{%
+  \AtBeginShipoutAddToBox{%
+    \special{dvisvgm:raw
+      <defs>
+      <script type="text/javascript">
+      <![CDATA[
+        document.addEventListener('keydown', function(e){
+          if(e.key=='PageDown'){
+            \ifnum\thepage<\ztotpages
+              document.location.replace('\jobname-\the\numexpr\thepage+1\relax.svg');%
+            \fi
+          }else if(e.key=='PageUp'){
+            \ifnum\thepage>1
+              document.location.replace('\jobname-\the\numexpr\thepage-1\relax.svg');%
+            \fi%
+          }
+        });
+      ]]>
+      </script>
+      </defs>
+    }%
+  }%
+  \AtBeginShipoutUpperLeftForeground{%
+    \raisebox{-\dimexpr\height+0.5ex\relax}[0pt][0pt]{\makebox[\paperwidth][r]{%
+      \normalsize\color{structure!40!}%
+      \ifnum\thepage>1%
+        \href{\jobname-\the\numexpr\thepage-1\relax.svg}{\faArrowLeft}%
+      \else%  
+        \textcolor{lightgray}{\faArrowLeft}%  
+      \fi\hspace{0.5ex}%
+      \ifnum\thepage<\ztotpages%
+        \href{\jobname-\the\numexpr\thepage+1\relax.svg}{\faArrowRight}%
+      \else%
+        \textcolor{lightgray}{\faArrowRight}%  
+      \fi%
+      \hspace{0.5ex}%
+    }}%
+  }%  
+}%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\title{Fasten Seat Belts}
+\subtitle{Use a Web browser and press \framebox{F11}}
+\author{Gianluca}
+\date{\today}
+
+\begin{document}
+
+\frame{\titlepage}
+
+\begin{frame}
+	\frametitle{My Slide}
+
+	\centering
+	\animategraphics[autoplay,loop,timeline=timeline.txt]{2}{build/slide-figure}{0}{6}
+\end{frame}
+\end{document}
