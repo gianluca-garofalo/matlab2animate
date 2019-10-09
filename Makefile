@@ -1,13 +1,25 @@
-.PHONY: all clean slide dvitest
+BUILDDIR = build
+PDFframes = $(wildcard $(BUILDDIR)/slide_pdf-figure*.pdf)
+TEXframes = $(wildcard $(BUILDDIR)/video*.tex)
+
+.PHONY: all clean slide
+
 all: slide clean
 
-slide: slide.tex build/video0.tex build/video1.tex build/video2.tex build/video3.tex build/video4.tex build/video5.tex build/video6.tex build/video7.tex build/video8.tex build/video9.tex build/video10.tex build/video11.tex build/video12.tex build/video13.tex build/video14.tex build/video15.tex build/video16.tex build/video17.tex build/video18.tex build/video19.tex build/video20.tex build/video21.tex 
-	latexmk -quiet -bibtex -f -pdf -pdflatex="lualatex -interaction=nonstopmode" slide.tex
-
 clean:
-	latexmk -c -bibtex slide.tex
+	latexmk -c -bibtex slide_pdf.tex
+	latexmk -c -bibtex slide_svg.tex
+	rm -f *.auxlock *.dpth *.log *.md5 *.nav *.snm
 
-dvitest: slide.tex build/video0.tex build/video1.tex build/video2.tex build/video3.tex build/video4.tex build/video5.tex build/video6.tex build/video7.tex build/video8.tex build/video9.tex build/video10.tex build/video11.tex build/video12.tex build/video13.tex build/video14.tex build/video15.tex build/video16.tex build/video17.tex build/video18.tex build/video19.tex build/video20.tex build/video21.tex 
-	lualatex -interaction=nonstopmode --output-format=dvi slide.tex
-	lualatex -interaction=nonstopmode --output-format=dvi slide.tex
-	dvisvgm --font-format=woff --exact --bbox=papersize --zoom=-1 -p1,- slide
+slide: slide_svg.dvi
+	dvisvgm --font-format=woff --exact --bbox=papersize --zoom=-1 -p1,- slide_svg
+
+slide_svg.dvi: slide_svg.tex $(PDFframes)
+	latex -interaction=nonstopmode slide_svg.tex
+	latex -interaction=nonstopmode slide_svg.tex
+
+$(PDFframes): slide_pdf.pdf $(TEXframes)
+
+slide_pdf.pdf: slide_pdf.tex $(TEXframes)
+	latexmk -quiet -bibtex -f -pdf -pdflatex="lualatex -interaction=nonstopmode -shell-escape" slide_pdf.tex
+	mv slide_pdf-figure*.pdf build/
