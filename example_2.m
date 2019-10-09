@@ -7,7 +7,7 @@ dist = DistFcn( X(X>=0) );
 
 fig = figure( 99 );
 clf( fig )
-set( fig, 'NumberTitle', 'off', 'MenuBar', 'none', 'Color', [.4314 .4157 .4745] );
+set( fig, 'NumberTitle', 'off', 'MenuBar', 'none', 'Color', 'none' );
 txt_col = 'w';
 line_col = [0 1 1];
 dot_col = [.8 .5 0];
@@ -69,8 +69,9 @@ for k = 1:5000:length(t)
 end
 
 hold( 'off' )
+close( fig );
 matlab2animate( 'make', 'root', 'fps', FPS );
-matlab2animate( 'make', 'adjust', 'old', 'draw=black', 'new', 'draw=none' );
+matlab2animate( 'make', 'adjust', 'old', {'font=\color{white}' 'draw=black'}, 'new', {'fill=none' 'draw=none'} );
 if isunix
     !make
 end

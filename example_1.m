@@ -2,14 +2,14 @@ function opt = example_1()
 
 fig = figure( 99 );
 clf( fig )
-set( fig, 'NumberTitle', 'off', 'MenuBar', 'none' );
+set( fig, 'NumberTitle', 'off', 'MenuBar', 'none', 'Color', 'none' );
 plot3( 0, 0, 0 ), grid
 axis([-3 3 -3 3 0 1])
 axis manual
 xlabel( 'x1' )
 ylabel( 'x2' )
 zlabel( 'Probability Density' )
-opt = matlab2animate( 'make', 'background', 'skip', {'surface'} );
+opt = matlab2animate( 'make', 'background', 'skip', {'surface'}, 'bounding_box', [-1.3 -0.8 5.8 4.4] );
 
 x1 = -3:0.1:3;
 x2 = -3:0.1:3;
@@ -31,8 +31,8 @@ for k = 0:1e-1:0.5
     matlab2animate( 'make', 'frame', 'skip', {'axes'}, opt );
 end
 
+close( fig );
 matlab2animate( 'make', 'root', opt );
-% matlab2animate( 'make', 'slide', opt );
 matlab2animate( 'make', 'adjust', 'old', 'font=\color{white!15!black}', 'new', 'fill=none' );
 if isunix
     !make
