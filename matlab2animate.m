@@ -10,7 +10,7 @@ persistent video idx
 opt = struct( ...
     'fps',          2                   , ...
     'make',         'frame'             , ...
-    'filename',     'video.tex'         , ...
+    'framename',    'video.tex'         , ...
     'rootname',     'slide.tex'         , ...
     'timename',     'timeline.txt'      , ...
     'title',        'My Slide'          , ...
@@ -61,15 +61,16 @@ if nArgs
 end
 
 % The extension of the file has priority
-[pathstr, opt.filename, ext] = fileparts( opt.filename );
+[~, opt.framename, ext] = fileparts( opt.framename );
 if ~isempty(ext)
     opt.type = ext(2:end);
 end
+[~, opt.rootname, ~] = fileparts( opt.rootname );
 % TODO: absolute or relative path
 % if startsWith( opt.build_dir, '../' )
-%     opt.filename = fullfile( pathstr, opt.build_dir, opt.filename );
+%     opt.framename = fullfile( pathstr, opt.build_dir, opt.framename );
 % else
-%     opt.filename = fullfile( opt.build_dir, opt.filename );
+%     opt.framename = fullfile( opt.build_dir, opt.framename );
 % end
 
 
@@ -81,16 +82,105 @@ switch opt.make
         [~, N] = fscanf( fid, '%s' );
         fclose( fid );
         
-        name = [opt.build_dir '/' opt.filename];
+        bsFname = [opt.build_dir '/' opt.framename];
+        bsPDFname = [opt.build_dir '/' opt.rootname '_pdf-figure'];
+        PDFname = [opt.rootname '_pdf.tex'];
+        SVGname = [opt.rootname '_svg.tex'];
         
+        % _svg.tex
         text = {
-            '\documentclass[10pt,aspectratio=169,english]{beamer}'
-            '%\usetheme{Warsaw}'
+            '\documentclass[dvisvgm,hypertex,10pt,aspectratio=169,english]{beamer}'
             ''
             '\usepackage{tikz}'
             '\usepackage{animate}'
             ''
-            '% the following commands are needed for some matlab2tikz features'
+            '% expandable flt-point calculation with L3'
+            '\ExplSyntaxOn'
+            '\let\fpEval\fp_eval:n'
+            '\ExplSyntaxOff'
+            ''
+            '% PageDown, PageUp key event handling'
+            '\usepackage[totpages]{zref}'
+            '\usepackage{atbegshi}'
+            '\setbeamertemplate{navigation symbols}{}'
+            '\AtBeginShipout{%'
+            '	\AtBeginShipoutAddToBox{%'
+            '		\special{dvisvgm:raw'
+            '		<defs>'
+            '		<script type="text/javascript">'
+            '		<![CDATA['
+            '			document.addEventListener(''keydown'', function(e){'
+            '				if(e.key==''PageDown''){'
+            '					\ifnum\thepage<\ztotpages'
+            '						document.location.replace(''\jobname-\the\numexpr\thepage+1\relax.svg'');%'
+            '					\fi'
+            '				}else if(e.key==''PageUp''){'
+            '					\ifnum\thepage>1'
+            '						document.location.replace(''\jobname-\the\numexpr\thepage-1\relax.svg'');%'
+            '					\fi%'
+            '				}'
+            '			});'
+            '		]]>'
+            '		</script>'
+            '		</defs>'
+            '		}%'
+            '	}%'
+            '}%'
+            ''
+            ''
+            ''
+            '\begin{document}'
+            '\begin{frame}'
+            ['	\frametitle{' opt.title '}']
+            ''
+            '	\centering'
+            ['	\animategraphics[autoplay,loop,timeline=' opt.timename ']{' num2str(opt.fps) '}{' bsPDFname '}{0}{' num2str(N-1) '}']
+            '\end{frame}'
+            '\end{document}'
+            };
+        
+        fid = fopen( SVGname, 'w' );
+        fprintf( fid, '%s', sprintf('%s\n',text{:}) );
+        fclose( fid );
+        
+        
+        % Makefile
+        text = {
+            '.PHONY: all clean slide'
+            ''
+            'all: slide clean'
+            ''
+            'clean:'
+            sprintf( ['\tlatexmk -c -bibtex ' PDFname] )
+            sprintf( ['\tlatexmk -c -bibtex ' SVGname] )
+            sprintf( '\trm -f *.auxlock *.dpth *.log *.md5 *.nav *.snm' )
+            ''
+            ['slide: ' strrep(SVGname,'.tex','.dvi')]
+            sprintf( ['\tdvisvgm --font-format=woff --exact --bbox=papersize --zoom=-1 -p1,- ' strrep(SVGname,'.tex','')] )
+            ''
+            [strrep(SVGname,'.tex','.dvi') ': ' SVGname ' ' bsPDFname '*.pdf']
+            sprintf( ['\tlatex -interaction=nonstopmode ' SVGname] )
+            sprintf( ['\tlatex -interaction=nonstopmode ' SVGname] )
+            ''
+            [bsPDFname '*.pdf: ' strrep(PDFname,'.tex','.pdf') ' ' bsFname '*.tex']
+            ''
+            [strrep(PDFname,'.tex','.pdf') ': ' PDFname ' ' bsFname '*.tex']
+            sprintf( ['\tlatexmk -quiet -bibtex -f -pdf -pdflatex="lualatex -interaction=nonstopmode -shell-escape" ' PDFname] )
+            sprintf( ['\tmv ' opt.rootname '_pdf-figure*.pdf build/'] )
+            };
+        fid = fopen( 'Makefile', 'w' );
+        fprintf( fid, '%s', sprintf('%s\n',text{:}) );
+        fclose( fid );
+        
+        
+        % _pdf.tex
+        text = {
+            '\documentclass[10pt,aspectratio=169,english]{beamer}'
+            ''
+            '\usepackage{tikz}'
+            '\usepackage{animate}'
+            ''
+            '% For matlab2tikz features'
             '\newlength\figH'
             '\newlength\figW'
             '\usepackage{pgfplots}'
@@ -99,10 +189,9 @@ switch opt.make
             '\usepgfplotslibrary{patchplots}'
             '\usepackage{grffile}'
             ''
-            '% the following commands are needed for separate compilation'
-            '%\usepackage{subfiles}'
-            '%\usepackage{xr}'
-            ['%\externaldocument{' opt.rootname '}']
+            '% For pdf frames generation'
+            '\usepgfplotslibrary{external}'
+            '\tikzexternalize'
             ''
             ''
             '\begin{document}'
@@ -112,103 +201,63 @@ switch opt.make
             '	\centering'
             ['	\setlength{\figH}{' num2str(opt.height) '\columnwidth}']
             ['	\begin{animateinline}[autoplay,loop,timeline=' opt.timename ']{' num2str(opt.fps) '}%']
-            ['		\multiframe{' num2str(N) '}{i=0+1}{ \input{' name '\i} }%']
+            ['		\multiframe{' num2str(N) '}{i=0+1}{ \input{' bsFname '\i} }%']
             '	\end{animateinline}%'
             '\end{frame}'
             '\end{document}'
             };
         
-        fid = fopen( opt.rootname, 'w' );
+        fid = fopen( PDFname, 'w' );
         fprintf( fid, '%s', sprintf('%s\n',text{:}) );
-        
-        allframes = sprintf( repmat([name '%d.tex '],1,N), 0:N-1 );
-        [~, tmp, ~] = fileparts( opt.rootname );
-        text = {
-            '.PHONY: all clean slide dvitest'
-            'all: slide clean'
-            ''
-            ['slide: ' opt.rootname ' ' allframes]
-            sprintf( ['\tlatexmk -quiet -bibtex -f -pdf -pdflatex="lualatex -interaction=nonstopmode" ' opt.rootname] )
-            ''
-            'clean:'
-            sprintf( ['\tlatexmk -c -bibtex ' opt.rootname] )
-            ''
-            ['dvitest: ' opt.rootname ' ' allframes]
-            sprintf( ['\tlualatex -interaction=nonstopmode --output-format=dvi ' opt.rootname] )
-            sprintf( ['\tlualatex -interaction=nonstopmode --output-format=dvi ' opt.rootname] )
-            sprintf( ['\tdvisvgm --font-format=woff --exact --bbox=papersize --zoom=-1 -p1,- ' tmp] )
-            };
-        fid = fopen( 'Makefile', 'w' );
-        fprintf( fid, '%s', sprintf('%s\n',text{:}) );
-        
-        %     case 'slide'
-        %
-        %         fid = fopen( opt.timename );
-        %         [~, N] = fscanf( fid, '%s' );
-        %         fclose( fid );
-        %
-        %         name = fullfile( opt.build_dir, opt.filename );
-        %
-        %         text = {
-        %             '%%\makeatletter'
-        %             ['%%\def\input@path{PATH_TO_ROOT/}']
-        %             '%%\makeatother'
-        %             ['\documentclass[' opt.rootname ']{subfiles}']
-        %             ''
-        %             '\begin{document}'
-        %             '\begin{frame}[t]'
-        %             ['	\frametitle{' opt.title '}']
-        %             ''
-        %             '	\centering'
-        %             ['	\setlength{\figH}{' num2str(opt.height) '\columnwidth}']
-        %             ['	\begin{animateinline}[autoplay,loop,timeline=' opt.timename ']{' num2str(opt.fps) '}%']
-        %             ['		\multiframe{' num2str(N) '}{i=0+1}{ \input{' name '\i} }%']
-        %             '	\end{animateinline}%'
-        %             '\end{frame}'
-        %             '\end{document}'
-        %             };
-        %
-        %         fid = FileOpenForWrite( [opt.filename '.tex'] );
-        %         fprintf( fid, '%s', sprintf('%s\n',text{:}) );
+        fclose( fid );
         
     case 'background'
         
         mkdir( opt.build_dir );
-        
+        idx = 0;
         switch opt.type
             case {'avi', 'mp4'}
-                video = VideoWriter( [opt.filename opt.type] );
+                video = VideoWriter( [opt.framename opt.type] );
                 video.Quality = opt.quality;
                 video.FrameRate = opt.fps;
                 open( video );
-            case 'png'
-                set( gcf, 'Color', 'none' );
             case 'tex'
-                set( gcf, 'Color', 'none' );
-                idx = 0;
-                delete( opt.timename )
-                
                 CreateTex( idx, opt );
+                delete( opt.timename )
                 fid = fopen( opt.timename, 'a' );
                 fprintf( fid, '::%dx0\n', idx );
                 fclose( fid );
-                idx = idx + 1;
-                
-                %                 if opt.show_bbox
-                %                     name = [opt.build_dir '/' opt.filename '_bbox.' opt.type];
-                %                     matlab2tikz( name, 'strict', true, 'showInfo', false,...
-                %                         'extraCode', {'\show\pgfextractx' '\makeatletter'...
-                %                         '\newcommand{\pgfsizesx}{ \pgfpointanchor{current bounding box}{south west} \pgfmathparse{\pgf@x/\pgf@xx} \pgfmathprintnumber{\pgfmathresult} }'...
-                %                         '\newcommand{\pgfsizesy}{ \pgfpointanchor{current bounding box}{south west} \pgfmathparse{\pgf@y/\pgf@yy} \pgfmathprintnumber{\pgfmathresult} }'...
-                %                         '\newcommand{\pgfsizenx}{ \pgfpointanchor{current bounding box}{north east} \pgfmathparse{\pgf@x/\pgf@xx} \pgfmathprintnumber{\pgfmathresult} }'...
-                %                         '\newcommand{\pgfsizeny}{ \pgfpointanchor{current bounding box}{north east} \pgfmathparse{\pgf@y/\pgf@yy} \pgfmathprintnumber{\pgfmathresult} }'...
-                %                         '\makeatother'},...
-                %                         'extraTikzpictureOptions', {']%' '\pgfsizesx %'...
-                %                         '\node { \textcolor{red}{|} }; %' '\pgfsizesy %'...
-                %                         '\node { \textcolor{red}{;} }; %' '\pgfsizenx %'...
-                %                         '\node { \textcolor{red}{:} }; %' '\pgfsizeny %' '['},...
-                %                         'extraAxisOptions', 'enlargelimits=false', 'height', '\figH');
-                %                 end
+        end
+        idx = idx + 1;
+        
+    case 'show_bbox' % FIXME: I believe \pgfsize changes the bbox
+        
+        if strcmp(opt.type,'tex')
+            bsFname = [opt.build_dir '/' opt.framename];
+            name = [bsFname '_bbox.tex'];
+            copyfile( [bsFname '0.tex'], name );
+            
+            text = {
+                '\show\pgfextractx'
+                '\makeatletter'
+                '\newcommand{\pgfsizesx}{ \pgfpointanchor{current bounding box}{south west} \pgfmathparse{\pgf@x/\pgf@xx} \pgfmathprintnumber{\pgfmathresult} }'
+                '\newcommand{\pgfsizesy}{ \pgfpointanchor{current bounding box}{south west} \pgfmathparse{\pgf@y/\pgf@yy} \pgfmathprintnumber{\pgfmathresult} }'
+                '\newcommand{\pgfsizenx}{ \pgfpointanchor{current bounding box}{north east} \pgfmathparse{\pgf@x/\pgf@xx} \pgfmathprintnumber{\pgfmathresult} }'
+                '\newcommand{\pgfsizeny}{ \pgfpointanchor{current bounding box}{north east} \pgfmathparse{\pgf@y/\pgf@yy} \pgfmathprintnumber{\pgfmathresult} }'
+                '\makeatother'
+                };
+            ReplaceInFile( name, '% This file was created by matlab2tikz.', sprintf('%s\n',text{:}) );
+            
+            text = {
+                '\pgfsizesx %'
+                '\node { \textcolor{red}{|} }; %'
+                '\pgfsizesy %'
+                '\node { \textcolor{red}{;} }; %'
+                '\pgfsizenx %'
+                '\node { \textcolor{red}{:} }; %'
+                '\pgfsizeny %'
+                };
+            ReplaceInFile( name, ['\useasboundingbox...[' newline ']'], sprintf('%s\n',text{:}) )
         end
         
     case 'frame'
@@ -219,8 +268,8 @@ switch opt.make
             case 'mp4'
                 writeVideo( video, getframe(gcf) );
             case 'png'
-                name = sprintf( [opt.filename '%d' opt.type], idx );
-                export_fig( name, '-transparent', '-r200', '-q101', '-a1', '-nocrop' );
+                bsFname = sprintf( [opt.framename '%d' opt.type], idx );
+                export_fig( bsFname, '-transparent', '-r200', '-q101', '-a1', '-nocrop' );
             case 'tex'
                 CreateTex( idx, opt );
                 fid = fopen( opt.timename, 'a' );
@@ -252,6 +301,11 @@ if ~iscellstr(old)
     [old, new] = deal( {old}, {new} );
 end
 for k = 1:length(old)
+    pos = strfind( old{k}, '...' );
+    if ~isempty(pos)
+        ellipses = extractBetween( f, old{k}(1:pos-1), old{k}(pos+3:end) );
+        old{k} = [old{k}(1:pos-1) char(ellipses) old{k}(pos+3:end)];
+    end
     f = strrep( f, old{k}, new{k} );
 end
 
@@ -267,28 +321,8 @@ bbox = ['\useasboundingbox ' coord1 ' rectangle ' coord2 ';%'];
 
 cleanfigure;
 NoExport( gcf, opt.skip );
-name = sprintf( [opt.build_dir '/' opt.filename '%d.' opt.type], idx );
-matlab2tikz( name, 'strict', true, 'showInfo', false,...
+bsFname = sprintf( [opt.build_dir '/' opt.framename '%d.' opt.type], idx );
+matlab2tikz( bsFname, 'strict', true, 'showInfo', false,...
     'extraCode', {'\pgfdeclarelayer{foreground}' '\pgfsetlayers{main,foreground}'},...
     'extraTikzpictureOptions', {']%' bbox '['},...
-    'extraAxisOptions', 'enlargelimits=false', 'height', '\figH');
-
-ReplaceInFile( name, 'font=\color{white}', 'fill=none' )
-
-
-%             ''
-%             '\title[title]{Awesome Title}'
-%             '\author[]{Gianluca~Garofalo}'
-%             '\institute[]{German Aerospace Center (DLR)\\Institute of Robotics and Mechatronics}'
-%             '\date[]{June 11, 1987}'
-%             ''
-%             '\begin{frame}[plain,noframenumbering,label=firstframe]'
-%             '\titlepage'
-%             '\end{frame}'
-%             ''
-%             '\begin{frame}[t,noframenumbering]'
-%             '\thispagestyle{empty}'
-%             '\frametitle{Outline}'
-%             '\tableofcontents{}'
-%             '\end{frame}'
-%             ''
+    'extraAxisOptions', 'enlargelimits=false', 'height', '\figH', 'width', '\figW');
