@@ -9,7 +9,9 @@ axis manual
 xlabel( 'x1' )
 ylabel( 'x2' )
 zlabel( 'Probability Density' )
-opt = matlab2animate( 'make', 'background', 'skip', {'surface'}, 'bounding_box', [-1.3 -0.8 5.8 4.4] );
+opt = matlab2animate( 'make', 'background', 'skip', {'surface'},...
+    'bounding_box', [-1.3 -0.8 5.8 4.4], 'height', '0.3\columnwidth',...
+    'width', '0.4\columnwidth' );
 
 x1 = -3:0.1:3;
 x2 = -3:0.1:3;
