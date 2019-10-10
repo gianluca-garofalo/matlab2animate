@@ -5,6 +5,10 @@ function opt = matlab2animate( varargin )
 %   See also: matlab2tikz.
 %   Implemented by Gianluca Garofalo.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% TODO: fix \useasboundingbox assumption in show_bbox %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 persistent video idx
 % Defaults
 opt = struct( ...
@@ -17,7 +21,7 @@ opt = struct( ...
     'height',       '0.3\columnwidth'   , ...
     'width',        -1                  , ...
     'quality',      100                 , ...
-    'bounding_box', [-1.1 -0.8 6 4.6]   , ...
+    'bounding_box', []                  , ...
     'type',         'tex'               , ...
     'skip',         {''}                , ...
     'old',          ''                  , ...
@@ -200,7 +204,7 @@ switch opt.make
             ''
             [bsPDFname '*.pdf: ' strrep(PDFname,'.tex','.pdf') ' ' bsFname '*.tex']
             ''
-            [strrep(PDFname,'.tex','.pdf') ': ' PDFname ' ' bsFname '*.tex']
+            [strrep(PDFname,'.tex','.pdf') ': ' PDFname ' ' bsFname '*.tex ' opt.timename]
             sprintf( ['\tlatexmk -quiet -bibtex -f -pdf -pdflatex="lualatex -interaction=nonstopmode -shell-escape" ' PDFname] )
             sprintf( ['\tmv ' opt.rootname '_pdf-figure*.pdf build/'] )
 
@@ -313,9 +317,13 @@ fclose( fid );
 
 
 function CreateTex( idx, opt )
-coord1 = ['(' num2str(opt.bounding_box(1)) ',' num2str(opt.bounding_box(2)) ')'];
-coord2 = ['(' num2str(opt.bounding_box(3)) ',' num2str(opt.bounding_box(4)) ')'];
-bbox = ['\useasboundingbox ' coord1 ' rectangle ' coord2 ';%'];
+if ~isempty(opt.bounding_box)
+    coord1 = ['(' num2str(opt.bounding_box(1)) ',' num2str(opt.bounding_box(2)) ')'];
+    coord2 = ['(' num2str(opt.bounding_box(3)) ',' num2str(opt.bounding_box(4)) ')'];
+    bbox = ['\useasboundingbox ' coord1 ' rectangle ' coord2 ';%'];
+else
+    bbox = '%';
+end
 
 sizes = {''};
 if opt.height~=-1
@@ -333,6 +341,46 @@ eval( ['matlab2tikz(''' bsFname '''' tmp ' ''strict'',true,''showInfo'',false,'.
     ' ''extraCode'',{''\pgfdeclarelayer{foreground}'' ''\pgfsetlayers{main,foreground}''},'...
     ' ''extraTikzpictureOptions'',{'']%'' ''' bbox ''' ''[''},'...
     ' ''extraAxisOptions'',''enlargelimits=false'');'] )
+
+
+function output = NoExport( h, cs, output )
+%NoExport  Switches off selected object's visibility to not export them.
+%   list=NoExport(h,cs), where h is the figure handle and cs is a cell of
+%   strings with the names of the object not to export, while list contains
+%   all the objects in the figure. If cs is empty or skipped then all
+%   objects in output are visible. The third input must never be used. It
+%   is only used within the code for the recursion.
+%
+%   See also: .
+%   Implemented by Gianluca Garofalo.
+
+%#codegen
+
+N = nargin;
+if N<3
+    output = {};
+end
+if N==1
+    cs = {};
+end
+
+children = allchild( h );
+for n = 1:length(children)
+    child = children(n);
+    type = get( child, 'Type' );
+    
+    if ~any( strcmp(type,output) )
+        output{end+1} = type;
+    end
+    
+    if any( strcmp(type,cs) )
+        set( child, 'Visible', 'off' )
+    else
+        set( child, 'Visible', 'on' )
+    end
+    
+    NoExport( child, cs, output );
+end
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
