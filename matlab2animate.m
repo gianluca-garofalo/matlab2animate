@@ -5,10 +5,6 @@ function opt = matlab2animate( varargin )
 %   See also: matlab2tikz.
 %   Implemented by Gianluca Garofalo.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% TODO: fix \useasboundingbox assumption in show_bbox %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 persistent video idx
 % Defaults
 opt = struct( ...
@@ -17,11 +13,9 @@ opt = struct( ...
     'framename',    'video.tex'         , ...
     'rootname',     'slide.tex'         , ...
     'timename',     'timeline.txt'      , ...
-    'title',        'My Slide'          , ...
     'height',       '0.3\columnwidth'   , ...
     'width',        -1                  , ...
     'quality',      100                 , ...
-    'bounding_box', []                  , ...
     'type',         'tex'               , ...
     'skip',         {''}                , ...
     'old',          ''                  , ...
@@ -120,7 +114,6 @@ switch opt.make
             '',...
             '\begin{document}',...
             '\begin{frame}',...
-            ['	\frametitle{' opt.title '}'],...
             '',...
             '	\centering',...
             sizes{:},...
@@ -145,7 +138,6 @@ switch opt.make
             ''
             '\begin{document}'
             '\begin{frame}'
-            ['	\frametitle{' opt.title '}']
             ''
             '	\centering'
             ['	\animategraphics[autoplay,loop,timeline=' opt.timename ']{' num2str(opt.fps) '}{' bsPDFname '}{0}{' num2str(N-1) '}']
@@ -232,36 +224,6 @@ switch opt.make
         end
         idx = idx + 1;
         
-    case 'show_bbox' % FIXME: I believe \pgfsize changes the bbox
-        
-        if strcmp(opt.type,'tex')
-            bsFname = [opt.build_dir '/' opt.framename];
-            name = [bsFname '_bbox.tex'];
-            copyfile( [bsFname '0.tex'], name );
-            
-            text = {
-                '\show\pgfextractx'
-                '\makeatletter'
-                '\newcommand{\pgfsizesx}{ \pgfpointanchor{current bounding box}{south west} \pgfmathparse{\pgf@x/\pgf@xx} \pgfmathprintnumber{\pgfmathresult} }'
-                '\newcommand{\pgfsizesy}{ \pgfpointanchor{current bounding box}{south west} \pgfmathparse{\pgf@y/\pgf@yy} \pgfmathprintnumber{\pgfmathresult} }'
-                '\newcommand{\pgfsizenx}{ \pgfpointanchor{current bounding box}{north east} \pgfmathparse{\pgf@x/\pgf@xx} \pgfmathprintnumber{\pgfmathresult} }'
-                '\newcommand{\pgfsizeny}{ \pgfpointanchor{current bounding box}{north east} \pgfmathparse{\pgf@y/\pgf@yy} \pgfmathprintnumber{\pgfmathresult} }'
-                '\makeatother'
-                };
-            ReplaceInFile( name, '% This file was created by matlab2tikz.', sprintf('%s\n',text{:}) );
-            
-            text = {
-                '\pgfsizesx %'
-                '\node { \textcolor{red}{|} }; %'
-                '\pgfsizesy %'
-                '\node { \textcolor{red}{;} }; %'
-                '\pgfsizenx %'
-                '\node { \textcolor{red}{:} }; %'
-                '\pgfsizeny %'
-                };
-            ReplaceInFile( name, ['\useasboundingbox...[' newline ']'], sprintf('%s\n',text{:}) )
-        end
-        
     case 'frame'
         
         switch opt.type
@@ -317,14 +279,6 @@ fclose( fid );
 
 
 function CreateTex( idx, opt )
-if ~isempty(opt.bounding_box)
-    coord1 = ['(' num2str(opt.bounding_box(1)) ',' num2str(opt.bounding_box(2)) ')'];
-    coord2 = ['(' num2str(opt.bounding_box(3)) ',' num2str(opt.bounding_box(4)) ')'];
-    bbox = ['\useasboundingbox ' coord1 ' rectangle ' coord2 ';%'];
-else
-    bbox = '%';
-end
-
 sizes = {''};
 if opt.height~=-1
     sizes{end+1,1} = '''height'', ''\figH''';
@@ -339,7 +293,6 @@ NoExport( gcf, opt.skip );
 bsFname = sprintf( [opt.build_dir '/' opt.framename '%d.' opt.type], idx );
 eval( ['matlab2tikz(''' bsFname '''' tmp ' ''strict'',true,''showInfo'',false,'...
     ' ''extraCode'',{''\pgfdeclarelayer{foreground}'' ''\pgfsetlayers{main,foreground}''},'...
-    ' ''extraTikzpictureOptions'',{'']%'' ''' bbox ''' ''[''},'...
     ' ''extraAxisOptions'',''enlargelimits=false'');'] )
 
 
