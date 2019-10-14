@@ -1,7 +1,7 @@
 Installation
 ============
 
-1. Clone the git repository.
+1. Clone the git repository (`git clone --recursive -j4 https://github.com/gianluca-garofalo/matlab2animate.git`).
 2. Make sure to have [matlab2tikz](https://github.com/matlab2tikz/matlab2tikz) and [Slidy](https://www.w3.org/Talks/Tools/Slidy2/#(1))
     (they are also included as submodules)
 3. Add the `src/` and `matlab2tikz/src/` folders to your path in MATLAB/Octave: e.g. 
