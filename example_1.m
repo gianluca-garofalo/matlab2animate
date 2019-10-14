@@ -36,6 +36,8 @@ end
 
 close( fig );
 matlab2animate( 'make', 'slide', opt );
+% font=\color seems to break the svg, so it is replaced with fill none
+% Added a fixed bouding box
 matlab2animate( 'make', 'adjust', 'old',...
     {'font=\color{white!15!black}'  '\begin{tikzpicture}'}, 'new',...
     {'fill=none'                    ['\begin{tikzpicture}' newline '\useasboundingbox (-1.3,-0.8) rectangle (5.8,4.4);']} );
