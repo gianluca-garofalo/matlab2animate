@@ -1,5 +1,7 @@
 function opt = example_1()
 
+init_matlab2animate;
+
 fig = figure( 99 );
 clf( fig )
 set( fig, 'NumberTitle', 'off', 'MenuBar', 'none', 'Color', 'none' );

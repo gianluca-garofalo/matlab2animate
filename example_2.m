@@ -1,5 +1,6 @@
 function opt = example_2()
 
+init_matlab2animate;
 load('example_2.mat')
 
 FPS = 15;
