@@ -1,3 +1,5 @@
+function opt = example_2()
+
 load('example_2.mat')
 
 FPS = 15;
@@ -8,7 +10,6 @@ dist = X(X>=0).^2;
 fig = figure( 99 );
 clf( fig )
 set( fig, 'NumberTitle', 'off', 'MenuBar', 'none', 'Color', 'none' );
-txt_col = 'w';
 line_col = [0 1 1];
 dot_col = [.8 .5 0];
 
@@ -76,7 +77,7 @@ end
 
 hold( 'off' )
 close( fig );
-matlab2animate( 'make', 'root', 'fps', FPS );
+matlab2animate( 'make', 'slide', 'fps', FPS );
 matlab2animate( 'make', 'adjust', 'old',...
     {'font=\color{white!15!black}'  'draw=black'}, 'new',...
     {'fill=none'                    'draw=none'} );
@@ -94,4 +95,6 @@ matlab2animate( 'make', 'adjust', 'old',...
     ['\begin{tikzpicture}' newline '\useasboundingbox (-1.0,-1.9) rectangle (8.8,4.5);'] );
 if isunix
     !make
+    matlab2animate( 'make', 'html', opt );
+    web( [opt.slidename '.html'] )
 end

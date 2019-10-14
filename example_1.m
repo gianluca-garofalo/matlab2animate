@@ -33,12 +33,14 @@ for k = 0:1e-1:0.5
 end
 
 close( fig );
-matlab2animate( 'make', 'root', opt );
+matlab2animate( 'make', 'slide', opt );
 matlab2animate( 'make', 'adjust', 'old',...
     {'font=\color{white!15!black}'  '\begin{tikzpicture}'}, 'new',...
     {'fill=none'                    ['\begin{tikzpicture}' newline '\useasboundingbox (-1.3,-0.8) rectangle (5.8,4.4);']} );
 if isunix
     !make
+    matlab2animate( 'make', 'html', opt );
+    web( [opt.slidename '.html'] )
 end
 
 

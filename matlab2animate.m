@@ -1,22 +1,20 @@
 function opt = matlab2animate( varargin )
 %matlab2animate  Description.
-%   matlab2animate( 'make', 'root', 'rootname', 'slide.tex', options ).
+%   matlab2animate( 'make', 'slide', 'slidename', 'slide.tex', options ).
 %
 %   See also: matlab2tikz.
 %   Implemented by Gianluca Garofalo.
 
-persistent video idx
+persistent idx
 % Defaults
 opt = struct( ...
     'fps',          2                   , ...
     'make',         'frame'             , ...
     'framename',    'video.tex'         , ...
-    'rootname',     'slide.tex'         , ...
+    'slidename',    'slide.tex'         , ...
     'timename',     'timeline.txt'      , ...
     'height',       '0.3\columnwidth'   , ...
     'width',        -1                  , ...
-    'quality',      100                 , ...
-    'type',         'tex'               , ...
     'skip',         {''}                , ...
     'old',          ''                  , ...
     'new',          ''                  , ...
@@ -32,14 +30,16 @@ if nArgs
     has_struct = isstruct( varargin{end} );
     if mod(nArgs,2) && ~has_struct
         error( 'matlab2animate: check propertyName/propertyValue pairs')
-    end
-    
-    if has_struct
+    elseif has_struct
         inpName = fieldnames( varargin{end} );
         if ~isempty(inpName)
             for k = 1:length(inpName)
-                field = inpName{k};
-                opt.(field) = varargin{end}.(field);
+                field = lower( inpName{k} );
+                if any( strcmp(field,optionNames) )
+                    opt.(field) = varargin{end}.(field);
+                else
+                    error( 'matlab2animate: %s is not a recognized parameter name', field )
+                end
             end
         end
         input = varargin(1:end-1);
@@ -48,51 +48,42 @@ if nArgs
     end
     
     for pair = reshape(input,2,[]) % pair is {propName;propValue}
-        inpName = lower( pair{1} ); % make case insensitive
-        
-        if any( strcmp(inpName,optionNames) )
+        field = lower( pair{1} ); % make case insensitive
+        if any( strcmp(field,optionNames) )
             % overwrite options
-            opt.(inpName) = pair{2};
+            opt.(field) = pair{2};
         else
-            error( '%s is not a recognized parameter name', inpName )
+            error( 'matlab2animate: %s is not a recognized parameter name', field )
         end
     end
 end
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% TODO: absolute or relative path %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-% The extension of the file has priority
-[~, opt.framename, ext] = fileparts( opt.framename );
-if ~isempty(ext)
-    opt.type = ext(2:end);
-end
-[~, opt.rootname, ~] = fileparts( opt.rootname );
+[~, opt.framename, ~] = fileparts( opt.framename );
+[~, opt.slidename, ~] = fileparts( opt.slidename );
 
 
 switch opt.make
     
-    case 'root'
+    case 'slide'
         
         fid = fopen( opt.timename );
         [~, N] = fscanf( fid, '%s' );
         fclose( fid );
         
         bsFname = [opt.build_dir '/' opt.framename];
-        bsPDFname = [opt.build_dir '/' opt.rootname '_pdf-figure'];
-        PDFname = [opt.rootname '_pdf.tex'];
-        SVGname = [opt.rootname '_svg.tex'];
+        bsPDFname = [opt.build_dir '/' opt.slidename '_pdf-figure'];
+        PDFname = [opt.slidename '_pdf.tex'];
+        SVGname = [opt.slidename '_svg.tex'];
         
         % _pdf.tex
         sizes = {''};
         if opt.height~=-1
-            sizes{end+1,1} = ['	\setlength{\figH}{' num2str(opt.height) '}'];
+            sizes{end+1} = ['	\setlength{\figH}{' opt.height '}'];
         end
         if opt.width~=-1
-            sizes{end+1,1} = ['	\setlength{\figW}{' num2str(opt.width) '}'];
+            sizes{end+1} = ['	\setlength{\figW}{' opt.width '}'];
         end
-        text = {
+        filetext = {
             '\documentclass[10pt,aspectratio=169,english]{beamer}',...
             '',...
             '\usepackage{tikz}',...
@@ -125,12 +116,12 @@ switch opt.make
             };
         
         fid = fopen( PDFname, 'w' );
-        fprintf( fid, '%s', sprintf('%s\n',text{:}) );
+        fprintf( fid, '%s', sprintf('%s\n',filetext{:}) );
         fclose( fid );
         
         
         % _svg.tex
-        text = {
+        filetext = {
             '\documentclass[dvisvgm,hypertex,10pt,aspectratio=169,english]{beamer}'
             ''
             '\usepackage{animate}'
@@ -146,38 +137,12 @@ switch opt.make
             };
         
         fid = fopen( SVGname, 'w' );
-        fprintf( fid, '%s', sprintf('%s\n',text{:}) );
-        fclose( fid );
-        
-        
-        % .html
-        text = {
-            '<!DOCTYPE html >'
-            '<html lang="en-US">'
-            '<head>'
-            '<meta charset="UTF-8">'
-            '<meta name="keywords" content="YOUR, KEYWORDS">'
-            '<meta name="description" content="BLABLA">'
-            '<meta name="author" content="Gianluca Garofalo">'
-            '<title>Perfect Slides</title>'
-            '<link rel="stylesheet" type="text/css" media="screen, projection, print" href="Slidy2/styles/slidy.css" />'
-            '<script src="Slidy2/scripts/slidy.js" charset="utf-8" type="text/javascript"></script>'
-            '</head>'
-            '<body>'
-            '<div class="slide">'
-            '<object type="image/svg+xml" data="PATHTOSVG.svg">'
-            '</object>'
-            '</div>'
-            '</body>'
-            '</html>'
-            };
-        fid = fopen( 'template.html', 'w' );
-        fprintf( fid, '%s', sprintf('%s\n',text{:}) );
+        fprintf( fid, '%s', sprintf('%s\n',filetext{:}) );
         fclose( fid );
         
         
         % Makefile
-        text = {
+        filetext = {
             '.PHONY: all clean slide'
             ''
             'all: slide clean'
@@ -198,84 +163,103 @@ switch opt.make
             ''
             [strrep(PDFname,'.tex','.pdf') ': ' PDFname ' ' bsFname '*.tex ' opt.timename]
             sprintf( ['\tlatexmk -quiet -bibtex -f -pdf -pdflatex="lualatex -interaction=nonstopmode -shell-escape" ' PDFname] )
-            sprintf( ['\tmv ' opt.rootname '_pdf-figure*.pdf build/'] )
-
+            sprintf( ['\tmv ' opt.slidename '_pdf-figure*.pdf build/'] )
             };
+        
         fid = fopen( 'Makefile', 'w' );
-        fprintf( fid, '%s', sprintf('%s\n',text{:}) );
+        fprintf( fid, '%s', sprintf('%s\n',filetext{:}) );
+        fclose( fid );
+        
+        
+    case 'html'
+        
+        bsSVGname = [opt.slidename '_svg'];
+        files = dir( [bsSVGname '*.svg'] );
+        N = length( files );
+        if N>1
+            ind = zeros( N, 1 );
+            for k = 1:N
+                [~, name, ~] = fileparts( files(k).name );
+                name = strrep( name, [bsSVGname '-'], '' );
+                ind(k) = str2double( name );
+            end
+            ind = sort( ind );
+            for k = 1:N
+                files(k).name = [bsSVGname '-' num2str(ind(k)) '.svg'];
+            end
+        end
+        
+        filetext = cell( N, 1 );
+        for k = 1:N
+            tmp = {
+                '<div class="slide">'
+                ['<object type="image/svg+xml" data="' files(k).name '">']
+                '</object>'
+                '</div>'
+                };
+            filetext{k} = sprintf( '%s\n', tmp{:} );
+        end
+        
+        filetext = {
+            '<!DOCTYPE html >',...
+            '<html lang="en-US">',...
+            '<head>',...
+            '<meta charset="UTF-8">',...
+            '<meta name="keywords" content="YOUR, KEYWORDS">',...
+            '<meta name="description" content="BLABLA">',...
+            '<meta name="author" content="Gianluca Garofalo">',...
+            '<title>Perfect Slides</title>',...
+            '<link rel="stylesheet" type="text/css" media="screen, projection, print" href="Slidy/styles/slidy.css" />',...
+            '<script src="Slidy/scripts/slidy.js" charset="utf-8" type="text/javascript"></script>',...
+            '</head>',...
+            '<body>',...
+            filetext{:},...
+            '</body>',...
+            '</html>',...
+            };
+        
+        fid = fopen( [opt.slidename '.html'], 'w' );
+        fprintf( fid, '%s', sprintf('%s\n',filetext{:}) );
         fclose( fid );
         
     case 'background'
         
         mkdir( opt.build_dir );
+        delete( opt.timename );
+        
         idx = 0;
-        switch opt.type
-            case {'avi', 'mp4'}
-                video = VideoWriter( [opt.framename opt.type] );
-                video.Quality = opt.quality;
-                video.FrameRate = opt.fps;
-                open( video );
-            case 'tex'
-                CreateTex( idx, opt );
-                delete( opt.timename )
-                fid = fopen( opt.timename, 'a' );
-                fprintf( fid, '::%dx0\n', idx );
-                fclose( fid );
+        if ~all( strcmp(opt.skip,NoExport(gcf)) )
+            CreateTex( idx, opt );
+            idx = idx + 1;
+            
+            fid = fopen( opt.timename, 'a' );
+            fprintf( fid, '::%dx0\n', idx );
+            fclose( fid );
         end
-        idx = idx + 1;
         
     case 'frame'
         
-        switch opt.type
-            case 'avi'
-                writeVideo( video, im2frame(print('-RGBImage')) );
-            case 'mp4'
-                writeVideo( video, getframe(gcf) );
-            case 'png'
-                bsFname = sprintf( [opt.framename '%d' opt.type], idx );
-                export_fig( bsFname, '-transparent', '-r200', '-q101', '-a1', '-nocrop' );
-            case 'tex'
-                CreateTex( idx, opt );
-                fid = fopen( opt.timename, 'a' );
-                fprintf( fid, '::%d\n', idx );
-                fclose( fid );
-        end
+        CreateTex( idx, opt );
         idx = idx + 1;
+        
+        fid = fopen( opt.timename, 'a' );
+        fprintf( fid, '::%d\n', idx );
+        fclose( fid );
         
     case 'adjust'
         
-        if strcmp(opt.type,'tex') && ~isempty(opt.old)% && length(opt.old)==length(opt.new)
+        if ~isempty(opt.old) && length(opt.old)==length(opt.new)
             files = struct2cell( dir([opt.build_dir '/*.tex']) );
             for file = files(1,:)
                 ReplaceInFile( [opt.build_dir '/' file{1}], opt.old, opt.new )
             end
         end
         
+    otherwise
+        error( 'matlab2animate: I do not know how to make %s', opt.make )
+        
 end
 
-
-
-function ReplaceInFile( file, old, new )
-fid = fopen( file, 'rt' );
-f = fread( fid );
-fclose( fid );
-
-f = char( f.' );
-if ~iscellstr(old)
-    [old, new] = deal( {old}, {new} );
-end
-for k = 1:length(old)
-    pos = strfind( old{k}, '...' );
-    if ~isempty(pos)
-        ellipses = extractBetween( f, old{k}(1:pos-1), old{k}(pos+3:end) );
-        old{k} = [old{k}(1:pos-1) char(ellipses) old{k}(pos+3:end)];
-    end
-    f = strrep( f, old{k}, new{k} );
-end
-
-fid = fopen( file, 'wt' );
-fwrite( fid, f );
-fclose( fid );
 
 
 function CreateTex( idx, opt )
@@ -290,51 +274,17 @@ tmp = sprintf( '%s,', sizes{:} );
 
 cleanfigure;
 NoExport( gcf, opt.skip );
-bsFname = sprintf( [opt.build_dir '/' opt.framename '%d.' opt.type], idx );
+bsFname = sprintf( [opt.build_dir '/' opt.framename '%d.tex'], idx );
 eval( ['matlab2tikz(''' bsFname '''' tmp ' ''strict'',true,''showInfo'',false,'...
     ' ''extraCode'',{''\pgfdeclarelayer{foreground}'' ''\pgfsetlayers{main,foreground}''},'...
     ' ''extraAxisOptions'',''enlargelimits=false'');'] )
 
 
-function output = NoExport( h, cs, output )
-%NoExport  Switches off selected object's visibility to not export them.
-%   list=NoExport(h,cs), where h is the figure handle and cs is a cell of
-%   strings with the names of the object not to export, while list contains
-%   all the objects in the figure. If cs is empty or skipped then all
-%   objects in output are visible. The third input must never be used. It
-%   is only used within the code for the recursion.
-%
-%   See also: .
-%   Implemented by Gianluca Garofalo.
 
-%#codegen
 
-N = nargin;
-if N<3
-    output = {};
-end
-if N==1
-    cs = {};
-end
-
-children = allchild( h );
-for n = 1:length(children)
-    child = children(n);
-    type = get( child, 'Type' );
-    
-    if ~any( strcmp(type,output) )
-        output{end+1} = type;
-    end
-    
-    if any( strcmp(type,cs) )
-        set( child, 'Visible', 'off' )
-    else
-        set( child, 'Visible', 'on' )
-    end
-    
-    NoExport( child, cs, output );
-end
-
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% TODO: absolute or relative path %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % TODO: If not using Slidy %
