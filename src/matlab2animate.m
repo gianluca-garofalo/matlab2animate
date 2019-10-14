@@ -1,6 +1,16 @@
 function opt = matlab2animate( varargin )
-%matlab2animate  Description.
-%   matlab2animate( 'make', 'slide', 'slidename', 'slide.tex', options ).
+%matlab2animate  By calling matlab2animate within the loop used to generate
+%each frame of the animation, matlab2animate relies on matlab2tikz to
+%export the frame as a tex file. At the end of the loop, slide_pdf.tex is
+%created and it uses the latex package animate to create the animation out
+%of the tex frames. slide_pdf.tex will also generate a pdf file for each of
+%the tex frames. These pdf frames are used by slide_svg.tex to generate an
+%animated svg (using once again the animated package). If slide_svg.tex
+%contains multiple slides, one svg file per page is generate. Finally, an
+%html file can be automatically created with matlab2animate to include all
+%the generated svg slides in one html presentation. The latter is based on
+%Slidy.
+%   options=matlab2animate() returns the default options structure.
 %
 %   See also: matlab2tikz.
 %   Implemented by Gianluca Garofalo.
@@ -206,9 +216,9 @@ switch opt.make
             '<head>',...
             '<meta charset="UTF-8">',...
             '<meta name="keywords" content="YOUR, KEYWORDS">',...
-            '<meta name="description" content="BLABLA">',...
+            '<meta name="description" content="YOUR, DESCRIPTION">',...
             '<meta name="author" content="Gianluca Garofalo">',...
-            '<title>Perfect Slides</title>',...
+            '<title>YOUR TITLE</title>',...
             '<link rel="stylesheet" type="text/css" media="screen, projection, print" href="Slidy/styles/slidy.css" />',...
             '<script src="Slidy/scripts/slidy.js" charset="utf-8" type="text/javascript"></script>',...
             '</head>',...
@@ -229,22 +239,20 @@ switch opt.make
         
         idx = 0;
         if ~all( strcmp(opt.skip,NoExport(gcf)) )
-            CreateTex( idx, opt );
-            idx = idx + 1;
-            
+            CreateTex( idx, opt );            
             fid = fopen( opt.timename, 'a' );
             fprintf( fid, '::%dx0\n', idx );
             fclose( fid );
+            idx = idx + 1;
         end
         
     case 'frame'
         
         CreateTex( idx, opt );
-        idx = idx + 1;
-        
         fid = fopen( opt.timename, 'a' );
         fprintf( fid, '::%d\n', idx );
         fclose( fid );
+        idx = idx + 1;
         
     case 'adjust'
         
@@ -282,13 +290,11 @@ eval( ['matlab2tikz(''' bsFname '''' tmp ' ''strict'',true,''showInfo'',false,'.
 
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% TODO: absolute or relative path %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% TODO: If not using Slidy %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% TODO:                              %
+%       1) absolute or relative path %
+%       2) If not using Slidy        %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %             ''
 %             '% expandable flt-point calculation with L3'
