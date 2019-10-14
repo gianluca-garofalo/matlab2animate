@@ -1,0 +1,6 @@
+[submodule "Slidy"]
+	path = Slidy
+	url = https://github.com/gianluca-garofalo/Slidy.git
+[submodule "matlab2tikz"]
+	path = matlab2tikz
+	url = https://github.com/gianluca-garofalo/matlab2tikz.git
